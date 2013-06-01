@@ -1,11 +1,9 @@
 {
-  "name": "webflight-traffic",
+  "name": "webflight-gamepad",
   "version": "0.0.1",
-  "description": "Plugin for webflight that shows nearby air traffic.",
+  "description": "Plugin for webflight that lets you control a drone with a joystick or gamepad.",
   "main": "./index.js",
   "dependencies": {
-    "ar-drone": "git+ssh://git@github.com:felixge/node-ar-drone.git#master",
-    "sbs1": "~0.2.0"
   },
   "devDependencies": {
   },
@@ -15,17 +13,13 @@
   },
   "repository": {
     "type": "git",
-    "url": "http://github.com/wiseman/webflight-traffic.git"
+    "url": "http://github.com/wiseman/webflight-gamepad.git"
   },
   "keywords": [
-    "ads-b",
-    "aircraft",
-    "aviation",
-    "avionics",
-    "kinetic avionics",
-    "mode s",
-    "sbs-1",
-    "virtual radar"
+    "gamepad",
+    "joystick",
+    "AR.Drone",
+    "drone"
   ],
   "author": {
     "name": "John Wiseman",
