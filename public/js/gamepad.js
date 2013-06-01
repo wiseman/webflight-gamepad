@@ -1,5 +1,7 @@
-(function(window, document) {
+// Lots of this code is taken from
+// http://www.html5rocks.com/en/tutorials/doodles/gamepad/
 
+(function(window, document) {
   var Gamepad = function(cockpit) {
     console.log("Loading gamepad plugin.");
     this.cockpit = cockpit;
@@ -8,10 +10,6 @@
     this.prevRawGamepadTypes = [];
     this.prevTimestamps = [];
 
-    this.pitch = 0;
-    this.roll = 0;
-    this.yaw = 0;
-
     var gamepadSupportAvailable = (
         !! navigator.webkitGetGamepads ||
         !! navigator.webkitGamepads ||
@@ -19,6 +17,7 @@
     if (!gamepadSupportAvailable) {
       console.log('Gamepad not supported.');
     } else {
+      console.log('Gamepad supported.')
       window.addEventListener('MozGamepadConnected',
                               this.onGamepadConnect.bind(this),
                               false);
@@ -28,45 +27,24 @@
       if (!! navigator.webkitGamepads || !! navigator.webkitGetGamepads) {
         this.startPolling();
       }
-
-      // Setup a timer to send motion command
-      setInterval(this.sendCommands.bind(this), 100);
     }
   };
 
-  Gamepad.prototype.sendCommands = function() {
-    // Yaw.
-    var speed = 0;
-    var direction = 'clockwise';
-    if (Math.abs(this.yaw) > 0.05) {
-      speed = Math.abs(this.yaw);
-      direction = this.yaw > 0 ? 'clockwise' : 'counterClockwise';
-    }
-    this.cockpit.socket.emit('/pilot/move', {
-      action: direction,
-      speed: speed
-    });
+  Gamepad.prototype.sendCommands = function(pitch, roll, yaw, altitude) {
+    this.emitMove(pitch, 'back', 'front');
+    this.emitMove(roll, 'right', 'left');
+    this.emitMove(yaw, 'clockwise', 'counterClockwise');
+    this.emitMove(altitude, 'down', 'up');
+  };
 
-    speed = 0;
-    direction = 'front';
-    if (Math.abs(this.pitch) > 0.05) {
-      speed = Math.abs(this.pitch);
-      direction = this.pitch > 0 ? 'back' : 'front';
-    }
+  Gamepad.prototype.emitMove = function(speed, posAction, negAction, deadZone) {
+    deadZone = deadZone || 0.1;
+    var action = speed > 0 ? posAction : negAction;
+    var absSpeed = Math.abs(speed);
+    absSpeed = absSpeed >= deadZone ? absSpeed : 0.0;
     this.cockpit.socket.emit('/pilot/move', {
-      action: direction,
-      speed: speed
-    });
-
-    speed = 0;
-    direction = 'right';
-    if (Math.abs(this.roll) > 0.05) {
-      speed = Math.abs(this.roll);
-      direction = this.roll > 0 ? 'right' : 'left';
-    }
-    this.cockpit.socket.emit('/pilot/move', {
-      action: direction,
-      speed: speed
+      action: action,
+      speed: Math.abs(absSpeed)
     });
   };
 
@@ -150,9 +128,8 @@
     var roll = gamepad.axes[0];
     var pitch = gamepad.axes[1];
     var yaw = gamepad.axes[5];
-    this.pitch = pitch;
-    this.roll = roll;
-    this.yaw = yaw;
+    var altitude = gamepad.axes[6];
+    this.sendCommands(pitch, roll, yaw, altitude);
   };
 
 
