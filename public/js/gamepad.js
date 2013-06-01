@@ -35,18 +35,39 @@
   };
 
   Gamepad.prototype.sendCommands = function() {
-    if (Math.abs(this.yaw) > 0.1) {
-      var speed = Math.abs(this.yaw);
-      var direction = 'clockwise';
-      if (this.yaw < 0) {
-        direction = 'counterClockwise';
-      }
-      console.log(direction + ' ' + speed);
-      this.cockpit.socket.emit('/pilot/move', {
-        action: direction,
-        speed: speed
-      });
+    // Yaw.
+    var speed = 0;
+    var direction = 'clockwise';
+    if (Math.abs(this.yaw) > 0.05) {
+      speed = Math.abs(this.yaw);
+      direction = this.yaw > 0 ? 'clockwise' : 'counterClockwise';
     }
+    this.cockpit.socket.emit('/pilot/move', {
+      action: direction,
+      speed: speed
+    });
+
+    speed = 0;
+    direction = 'front';
+    if (Math.abs(this.pitch) > 0.05) {
+      speed = Math.abs(this.pitch);
+      direction = this.pitch > 0 ? 'back' : 'front';
+    }
+    this.cockpit.socket.emit('/pilot/move', {
+      action: direction,
+      speed: speed
+    });
+
+    speed = 0;
+    direction = 'right';
+    if (Math.abs(this.roll) > 0.05) {
+      speed = Math.abs(this.roll);
+      direction = this.roll > 0 ? 'right' : 'left';
+    }
+    this.cockpit.socket.emit('/pilot/move', {
+      action: direction,
+      speed: speed
+    });
   };
 
   Gamepad.prototype.onGamepadConnect = function(event) {
@@ -129,7 +150,6 @@
     var roll = gamepad.axes[0];
     var pitch = gamepad.axes[1];
     var yaw = gamepad.axes[5];
-    console.log('roll=' + roll + ' pitch=' + pitch + ' yaw=' + yaw);
     this.pitch = pitch;
     this.roll = roll;
     this.yaw = yaw;
