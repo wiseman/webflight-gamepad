@@ -74,6 +74,16 @@ Now you can start the webflight server:
 Plugin your gamepad, point your browser at http://localhost:3000/ and
 then press a button on your gamepad to activate the plugin.
 
+
+Control scheme: 
+LS for movements 
+RS for altitude/rotation
+Pressing RS will disable emergancy stop
+Y to flip
+Either of RT or LT will make drone hover in place
+Start to take off
+Select to land
+
 If you have a Logitech Extreme 3D Pro joystick, you should now be able
 to control the drone's roll/pitch/yaw with the joystick and
 climb/descent rate with the throttle.

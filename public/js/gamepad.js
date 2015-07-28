@@ -17,218 +17,174 @@
  * @ported wade@bluu.co.nz (Wade Wildbore)
  * @link - http://www.html5rocks.com/en/tutorials/doodles/gamepad/
  */
+(function(window, document) {
+  var Gamepad = function(cockpit) {
+    console.log("Loading gamepad plugin.");
+    this.cockpit = cockpit;
+    this.ticking = false;
+    this.gamepads = [];
+    this.prevRawGamepadTypes = [];
+    this.prevTimestamps = [];
 
-(function(window, document){
-
-    /**
-     * Initialize support for Gamepad API.
-     */
-    var Gamepad = function(cockpit){
-
-        console.log('Loading gamepad plugin');
-
-        this.cockpit = cockpit;
-        this.ticking = false;
-        this.gamepads = [];
-        this.prevRawGamepadTypes = [];
-        this.prevTimestamps = [];
-
-        var gamepadSupportAvailable = navigator.getGamepads ||
-            !!navigator.webkitGetGamepads ||
-            !!navigator.webkitGamepads;
-
-        if (!gamepadSupportAvailable) {
-
-            console.log('Gamepad not supported !');
-
-        } else {
-
-            console.log('Gamepad supported');
-
-            if ('ongamepadconnected' in window) {
-                window.addEventListener('gamepadconnected', this.onGamepadConnect.bind(this), false);
-                window.addEventListener('gamepaddisconnected', this.onGamepadDisconnect.bind(this), false);
-            } else {
-                // If connection events are not supported just start polling
-                this.startPolling();
-            }
-        }
-
-    };// ./gamepad
-
-    Gamepad.prototype.sendCommands = function(pitch, roll, yaw, altitude){
-
-        this.emitMove(pitch, 'back', 'front');
-        this.emitMove(roll, 'right', 'left');
-        this.emitMove(yaw, 'clockwise', 'counterClockwise');
-        this.emitMove(altitude, 'down', 'up');
-
-    };
-
-    Gamepad.prototype.emitMove = function(speed, posAction, negAction, deadZone) {
-
-        var action, absSpeed;
-
-        deadZone = deadZone || 0.1;
-        action = speed > 0 ? posAction : negAction;
-        absSpeed = Math.abs(speed);
-        absSpeed = absSpeed >= deadZone ? absSpeed : 0.0;
-
-        // move the drone..
-        this.cockpit.socket.emit('/pilot/move', {
-            action: action,
-            speed: Math.abs(absSpeed)
-        });
-
-    };
-
-    /**
-     * React to the gamepad being connected.
-     */
-    Gamepad.prototype.onGamepadConnect = function(event){
-
-        console.log(event);
-
-        this.gamepads.push(event.gamepad);
+    var gamepadSupportAvailable = (
+        navigator.getGamepads ||
+        !! navigator.webkitGetGamepads ||
+        !! navigator.webkitGamepads ||
+        (navigator.userAgent.indexOf('Firefox/') != -1));
+    if (!gamepadSupportAvailable) {
+      console.log('Gamepad not supported.');
+    } else {
+      console.log('Gamepad supported.')
+      window.addEventListener('MozGamepadConnected',
+                              this.onGamepadConnect.bind(this),
+                              false);
+      window.addEventListener('MozGamepadDisconnected',
+                              this.onGamepadDisconnect.bind(this),
+                              false);
+      if (gamepadSupportAvailable) {
         this.startPolling();
-    };
+      }
+    }
+  };
 
-    /**
-     * React to the gamepad being disconnected.
-     */
-    Gamepad.prototype.onGamepadDisconnect = function(event){
+  Gamepad.prototype.sendCommands = function(pitch, roll, yaw, altitude) {
+    // console.log("yaw (direction): " + " , altitude " + altitude);
+    this.emitMove(pitch, 'back', 'front');
+    this.emitMove(roll, 'right', 'left');
+    this.emitMove(yaw, 'clockwise', 'counterClockwise');
+    this.emitMove(altitude, 'down', 'up');
+  };
 
-        // Remove the gamepad from the list of gamepads to monitor.
-        for (var i in this.gamepads) {
-            if (this.gamepads[i].index == event.gamepad.index) {
-                this.gamepads.splice(i, 1);
-                break;
-            }
+  Gamepad.prototype.emitMove = function(speed, posAction, negAction, deadZone) {
+    deadZone = deadZone || 0.1;
+    var action = speed > 0 ? posAction : negAction;
+    var absSpeed = Math.abs(speed);
+    absSpeed = absSpeed >= deadZone ? absSpeed : 0.0;
+    this.cockpit.socket.emit('/pilot/move', {
+      action: action,
+      speed: Math.abs(absSpeed/3)
+    });
+  };
+
+  Gamepad.prototype.onGamepadConnect = function(event) {
+  	console.log("Gamepad connect: " + event);
+    this.gamepads.push(event.gamepad);
+    this.startPolling();
+  };
+
+  Gamepad.prototype.onGamepadDisconnect = function(event) {
+    for (var i in this.gamepads) {
+      if (this.gamepads[i].index == event.gamepad.index) {
+        this.gamepads.splice(i, 1);
+        break;
+      }
+    }
+    if (this.gamepads.length == 0) {
+      this.stopPolling();
+    }
+  };
+
+  Gamepad.prototype.startPolling = function() {
+    if (!this.ticking) {
+      this.ticking = true;
+      this.tick();
+    }
+  };
+
+  Gamepad.prototype.stopPolling = function() {
+    this.ticking = false;
+  };
+
+  Gamepad.prototype.tick = function() {
+    this.pollStatus();
+    this.scheduleNextTick(); // works
+  };
+
+  Gamepad.prototype.scheduleNextTick = function() {
+    if (this.ticking) {
+      requestAnimationFrame(this.tick.bind(this));
+    }
+  };
+
+  Gamepad.prototype.pollStatus = function() {
+    this.pollGamepads();
+    for (var i in this.gamepads) {
+      var gamepad = this.gamepads[i];
+      if (gamepad.timestamp && (gamepad.timestamp == this.prevTimestamps[i])) {
+        continue;
+      }
+      this.prevTimestamps[i] = gamepad.timestamp;
+      this.updateDisplay(i);
+    }
+  };
+
+  Gamepad.prototype.pollGamepads = function() {
+    var rawGamepads = navigator.getGamepads ? navigator.getGamepads() : (navigator.webkitGetGamepads ? navigator.webkitGetGamepads() : []);
+    if (rawGamepads) {
+      this.gamepads = [];
+      var gamepadsChanged = false;
+      for (var i = 0; i < rawGamepads.length; i++) {
+        if (rawGamepads[i] != this.prevRawGamepadTypes[i]) {
+          gamepadsChanged = true;
+          this.prevRawGamepadTypes[i] = rawGamepads[i];
         }
-
-        // If no gamepads are left, stop the polling loop.
-        if (this.gamepads.length == 0) {
-            this.stopPolling();
+        if (rawGamepads[i]) {
+          this.gamepads.push(rawGamepads[i]);
         }
+      }
+      if (gamepadsChanged) {
+      }
+    }
+  };
+  
+  /* 
+    axe[0] = LS +1 right/ -1 left
+    axe[1] = LS +1 back/ -1 forward
+    axe[2] = RS +1 right/ -1 left
+    axe[3] = RS +1 down/ -1 up
+    */
+ 
+  Gamepad.prototype.updateDisplay = function(gamepadId) {
+    var gamepad = this.gamepads[gamepadId];
+    var FlyButton = gamepad.buttons[9]; // Start, use this to fly
+    var LandButton = gamepad.buttons[8]; // Select,  use this to land, check by .press
+    var StopButton = gamepad.buttons[7]; // RT, use it to stop in place
+    var StopButton2 = gamepad.buttons[6]; // LT, use it to stop in place
+    var EmergancyButton = gamepad.buttons[10]; // LS, use it to turn off emergancy 
+    var roll = gamepad.axes[0];
+    var pitch = gamepad.axes[1];
+    var yaw = gamepad.axes[2];
+    var altitude = gamepad.axes[3];
+    var flipAhead = gamepad.buttons[3]; // Y, use it to flip 	
 
-    };
+    this.sendCommands(pitch, roll, yaw, altitude);
+  
+  	if(flipAhead.pressed) { 
+	  this.cockpit.socket.emit('/pilot/animate', {
+      	action: "flipAhead"});
+   
+  	}
 
-    /**
-     * Starts a polling loop to check for gamepad state.
-     */
-    Gamepad.prototype.startPolling = function(){
-
-        if(!this.ticking){
-            this.ticking = true;
-            this.tick();
-        }
-
-    };
-
-    /**
-     * Stops a polling loop by setting a flag which will prevent the next
-     * requestAnimationFrame() from being scheduled.
-     */
-    Gamepad.prototype.stopPolling = function(){
-
-        this.ticking = false;
-
-    };
-
-    /**
-     * A function called with each requestAnimationFrame(). Polls the gamepad
-     * status and schedules another poll.
-     */
-    Gamepad.prototype.tick = function(){
-
-        this.pollStatus();
-        this.scheduleNextTick();
-
-    };
-
-    Gamepad.prototype.scheduleNextTick = function(){
-
-        if (this.ticking) {
-            if (window.requestAnimationFrame) {
-                window.requestAnimationFrame(this.tick.bind(this));
-            } else if (window.mozRequestAnimationFrame) {
-                window.mozRequestAnimationFrame(this.tick.bind(this));
-            } else if (window.webkitRequestAnimationFrame) {
-                window.webkitRequestAnimationFrame(this.tick.bind(this));
-            }
-          // Note lack of setTimeout since all the browsers that support
-          // Gamepad API are already supporting requestAnimationFrame().
-        }
-
+    if(FlyButton.pressed) {
+      this.cockpit.socket.emit('/pilot/move', {
+      	action: "takeoff"});
     }
 
-    /**
-     * Checks for the gamepad status. Monitors the necessary data and notices
-     * the differences from previous state (buttons for Chrome/Firefox,
-     * new connects/disconnects for Chrome). If differences are noticed, asks
-     * to update the display accordingly. Should run as close to 60 frames per
-     * second as possible.
-     */
-    Gamepad.prototype.pollStatus = function(){
+    if(LandButton.pressed) {
+      this.cockpit.socket.emit('/pilot/move', {
+      	action: "land"});
+    }
 
-        this.pollGamepads();
+    
+    if(EmergancyButton.pressed) {
+      this.cockpit.socket.emit('/pilot/move', {
+      	action: "disableEmergency"});
+    }
 
-        for (var i in this.gamepads) {
-
-            var gamepad = this.gamepads[i];
-
-            if (gamepad.timestamp && (gamepad.timestamp == this.prevTimestamps[i])) {
-                continue;
-            }
-
-            this.prevTimestamps[i] = gamepad.timestamp;
-            this.updateDisplay(i);
-        }
-
-    };
-
-   /**
-    * This function is called only on Chrome, which does not yet support
-    * connection/disconnection events, but requires you to monitor
-    * an array for changes.
-    */
-    Gamepad.prototype.pollGamepads = function(){
-
-        var rawGamepads =
-        (navigator.getGamepads && navigator.getGamepads()) ||
-        (navigator.webkitGetGamepads && navigator.webkitGetGamepads());
-
-        if (rawGamepads) {
-          // We donâ€™t want to use rawGamepads coming straight from the browser,
-          // since it can have â€œholesâ€ (e.g. if you plug two gamepads, and then
-          // unplug the first one, the remaining one will be at index [1]).
-            this.gamepads = [];
-
-          // We only refresh the display when we detect some gamepads are new
-          // or removed; we do it by comparing raw gamepad table entries to
-          // â€œundefined.â€
-            var gamepadsChanged = false;
-
-            for (var i = 0; i < rawGamepads.length; i++) {
-                if (typeof rawGamepads[i] != this.prevRawGamepadTypes[i]) {
-                    gamepadsChanged = true;
-                    this.prevRawGamepadTypes[i] = typeof rawGamepads[i];
-                }
-
-                if (rawGamepads[i]) {
-                    this.gamepads.push(rawGamepads[i]);
-                }
-            }
-        }
-    };
-
-    Gamepad.prototype.updateDisplay = function(gamepadId) {
-      var gamepad = this.gamepads[gamepadId];
-      var roll = gamepad.axes[0];
-      var pitch = gamepad.axes[1];
-      var yaw = gamepad.axes[5];
-      var altitude = gamepad.axes[6];
-      this.sendCommands(pitch, roll, yaw, altitude);
+    if(StopButton.pressed || StopButton2.pressed) {
+      this.cockpit.socket.emit('/pilot/move', {
+      	action: "stop"});
+    }
   };
 
 
