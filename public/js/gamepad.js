@@ -41,7 +41,7 @@
       customCommands: []
     };
 
-    this.cockpit.socket.on('/gamepad-config', this.updateConfig.bind(this));
+    this.cockpit.socket.on('/gamepad-config', this.onConfigUpdate.bind(this));
 
     var gamepadSupportAvailable = (
         navigator.getGamepads ||
@@ -51,23 +51,27 @@
 
     if (!gamepadSupportAvailable) {
       console.log('Gamepad not supported.');
+      $.notifyBar({
+        cssClass: "warn",
+        html: 'Browser has no gamepad support! Please use latest Firefox or Chromium'
+      });
     } else {
       console.log('Gamepad supported.')
-      window.addEventListener('MozGamepadConnected',
-                              this.onGamepadConnect.bind(this),
-                              false);
-      window.addEventListener('MozGamepadDisconnected',
-                              this.onGamepadDisconnect.bind(this),
-                              false);
-      if (gamepadSupportAvailable) this.startPolling();
+
+      if (navigator.userAgent.indexOf('Firefox/') != -1) {
+        window.addEventListener('gamepadconnected', this.onGamepadConnect.bind(this), false);
+        window.addEventListener('gamepaddisconnected', this.onGamepadDisconnect.bind(this), false);
+      } else {
+        // If connection events are not supported just start polling immediately
+        this.startPolling();
+      }
     }
   };
 
-  Gamepad.prototype.updateConfig = function(config) {
+  Gamepad.prototype.onConfigUpdate = function(config) {
     // recieve config on connection from webflight config.js
     console.log('recieved gamepad config.');   
     $.extend(this.config, config);
-    console.log(this.config);
   };
 
   Gamepad.prototype.sendCommands = function(pitch, roll, yaw, altitude) {
@@ -90,12 +94,15 @@
   };
 
   Gamepad.prototype.onGamepadConnect = function(event) {
-    console.log('Gamepad connect: ' + event);
+    console.log('Gamepad connect: ' + event.gamepad.id);
+    $.notifyBar({ cssClass: "success", html: 'Gamepad connected: ' + event.gamepad.id });
     this.gamepads.push(event.gamepad);
     this.startPolling();
   };
 
   Gamepad.prototype.onGamepadDisconnect = function(event) {
+    $.notifyBar({ cssClass: "warning", html: 'Gamepad disconnected: ' + event.gamepad.id });
+
     for (var i in this.gamepads) {
       if (this.gamepads[i].index == event.gamepad.index) {
         this.gamepads.splice(i, 1);
@@ -108,6 +115,7 @@
   };
 
   Gamepad.prototype.startPolling = function() {
+    console.log('started gamepad eventpolling.');
     if (!this.ticking) {
       this.ticking = true;
       this.tick();
@@ -197,7 +205,6 @@
       if(gamepad.buttons[cmd.button].pressed)
         socket.emit(cmd.command.path, { action: cmd.command.action });
     }
-
   };
 
   window.Cockpit.plugins.push(Gamepad);
