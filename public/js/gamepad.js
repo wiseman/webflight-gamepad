@@ -17,20 +17,34 @@
  * @ported wade@bluu.co.nz (Wade Wildbore)
  * @link - http://www.html5rocks.com/en/tutorials/doodles/gamepad/
  */
-(function(window, document) {
+(function(window, document, $) {
   var Gamepad = function(cockpit) {
+
     console.log("Loading gamepad plugin.");
     this.cockpit = cockpit;
     this.ticking = false;
     this.gamepads = [];
     this.prevRawGamepadTypes = [];
     this.prevTimestamps = [];
+    this.config = {
+      altitude: { axis: 0, invert: false },
+      yaw:      { axis: 1, invert: false },
+      pitch:    { axis: 2, invert: false },
+      roll:     { axis: 3, invert: false },
+      takeoff: 9,
+      land:   10,
+      hover:   3,
+      flip:    4,
+    };
+
+    this.cockpit.socket.on('/gamepad-config', this.updateConfig.bind(this));
 
     var gamepadSupportAvailable = (
         navigator.getGamepads ||
         !! navigator.webkitGetGamepads ||
         !! navigator.webkitGamepads ||
         (navigator.userAgent.indexOf('Firefox/') != -1));
+
     if (!gamepadSupportAvailable) {
       console.log('Gamepad not supported.');
     } else {
@@ -45,6 +59,13 @@
         this.startPolling();
       }
     }
+  };
+
+  Gamepad.prototype.updateConfig = function(config) {
+    // recieve config on connection from webflight config.js
+    console.log('recieved gamepad config.');   
+    $.extend(this.config, config);
+    console.log(this.config);
   };
 
   Gamepad.prototype.sendCommands = function(pitch, roll, yaw, altitude) {
@@ -67,7 +88,7 @@
   };
 
   Gamepad.prototype.onGamepadConnect = function(event) {
-  	console.log("Gamepad connect: " + event);
+    console.log("Gamepad connect: " + event);
     this.gamepads.push(event.gamepad);
     this.startPolling();
   };
@@ -137,57 +158,40 @@
     }
   };
   
-  /* 
-    axe[0] = LS +1 right/ -1 left
-    axe[1] = LS +1 back/ -1 forward
-    axe[2] = RS +1 right/ -1 left
-    axe[3] = RS +1 down/ -1 up
-    */
- 
   Gamepad.prototype.updateDisplay = function(gamepadId) {
-    var gamepad = this.gamepads[gamepadId];
-    var FlyButton = gamepad.buttons[9]; // Start, use this to fly
-    var LandButton = gamepad.buttons[8]; // Select,  use this to land, check by .press
-    var StopButton = gamepad.buttons[7]; // RT, use it to stop in place
-    var StopButton2 = gamepad.buttons[6]; // LT, use it to stop in place
-    var EmergancyButton = gamepad.buttons[10]; // LS, use it to turn off emergancy 
-    var roll = gamepad.axes[0];
-    var pitch = gamepad.axes[1];
-    var yaw = gamepad.axes[2];
-    var altitude = gamepad.axes[3];
-    var flipAhead = gamepad.buttons[3]; // Y, use it to flip 	
+    var gamepad = this.gamepads[gamepadId],
+        cfg = this.config,
+        socket = this.cockpit.socket;
 
-    this.sendCommands(pitch, roll, yaw, altitude);
+    var pitch = gamepad.axes[cfg.pitch.axis],
+        roll  = gamepad.axes[cfg.roll.axis],
+        yaw   = gamepad.axes[cfg.yaw.axis],
+        altitude = gamepad.axes[cfg.altitude.axis];
+
+    this.sendCommands(
+      cfg.pitch.invert    ? -1 * pitch : pitch,
+      cfg.roll.invert     ? -1 * roll : roll,
+      cfg.yaw.invert      ? -1 * yaw : yaw,
+      cfg.altitude.invert ? -1 * altitude : altitude
+    );
   
-  	if(flipAhead.pressed) { 
-	  this.cockpit.socket.emit('/pilot/animate', {
-      	action: "flipAhead"});
+    if(gamepad.buttons[cfg.flip].pressed)
+      socket.emit('/pilot/animate', { action: "flipAhead" });
    
-  	}
+    if(gamepad.buttons[cfg.takeoff].pressed)
+      socket.emit('/pilot/move', { action: "takeoff" });
 
-    if(FlyButton.pressed) {
-      this.cockpit.socket.emit('/pilot/move', {
-      	action: "takeoff"});
-    }
-
-    if(LandButton.pressed) {
-      this.cockpit.socket.emit('/pilot/move', {
-      	action: "land"});
-    }
-
+    if(gamepad.buttons[cfg.land].pressed)
+      socket.emit('/pilot/move', { action: "land" });
     
-    if(EmergancyButton.pressed) {
-      this.cockpit.socket.emit('/pilot/move', {
-      	action: "disableEmergency"});
-    }
+    if(gamepad.buttons[cfg.disableEmergency].pressed)
+      socket.emit('/pilot/move', { action: "disableEmergency" });
 
-    if(StopButton.pressed || StopButton2.pressed) {
-      this.cockpit.socket.emit('/pilot/move', {
-      	action: "stop"});
-    }
+    if(gamepad.buttons[cfg.hover].pressed)
+      socket.emit('/pilot/move', { action: "stop" });
   };
 
 
   window.Cockpit.plugins.push(Gamepad);
 
-}(window, document));
+}(window, document, jQuery));
