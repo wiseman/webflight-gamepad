@@ -83,10 +83,14 @@
 
   Gamepad.prototype.sendCommands = function(pitch, roll, yaw, altitude) {
     var cfg = this.config;
+        allCtrlsZero = Math.abs(pitch) <= cfg.controls.pitch.deadZone &&
+          Math.abs(roll) <= cfg.controls.roll.deadZone &&
+          Math.abs(yaw) <= cfg.controls.yaw.deadZone &&
+          Math.abs(altitude) <= cfg.controls.altitude.deadZone;
 
     // autoStabilize if all movementcontrols are zero
     if (cfg.autoStabilize.enabled &&  // feature enabled?
-      allCtrlsZero() &&               // no new movement controls?
+      allCtrlsZero &&                 // no new movement controls?
       this.droneIsMoving &&           // are we currently moving?
       !this.autoStabilizeTimout) {    // are we already stabilizing?
 
@@ -96,7 +100,7 @@
       }.bind(this), cfg.autoStabilize.delay * 1000);
     }
 
-    else if (!allCtrlsZero()) {
+    else if (!allCtrlsZero) {
       if (this.autoStabilizeTimout) {
         clearTimeout(this.autoStabilizeTimout);
         this.autoStabilizeTimout = null;
@@ -107,13 +111,6 @@
       this.emitMove(roll, 'right', 'left',  cfg.controls.roll.deadZone);
       this.emitMove(yaw, 'clockwise', 'counterClockwise', cfg.controls.yaw.deadZone);
       this.emitMove(altitude, 'down', 'up', cfg.controls.altitude.deadZone);
-    }
-
-    function allCtrlsZero() {
-      return Math.abs(pitch) <= cfg.controls.pitch.deadZone &&
-        Math.abs(roll) <= cfg.controls.roll.deadZone &&
-        Math.abs(yaw) <= cfg.controls.yaw.deadZone &&
-        Math.abs(altitude) <= cfg.controls.altitude.deadZone;
     }
   };
 
