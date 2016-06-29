@@ -37,11 +37,13 @@
         yaw:      { axis: 1, invert: false, deadZone: 0.1 },
         pitch:    { axis: 2, invert: false, deadZone: 0.1 },
         roll:     { axis: 3, invert: false, deadZone: 0.1 },
-        disableEmergency: 11,
-        takeoff: 9,
-        land:   10,
-        hover:   3,
-        flip:    4,
+        disableEmergency: 8,
+        takeoff:   10,
+        land:      11,
+        hover:      1,
+        flip:       2,
+        flatTrim:   3,
+        switchCams: 0
       },
       customCommands: []
     };
@@ -75,7 +77,7 @@
 
   Gamepad.prototype.onConfigUpdate = function(config) {
     // recieve config on connection from webflight config.js
-    console.log('recieved gamepad config.');   
+    console.log('recieved gamepad config.');
     $.extend(this.config, config);
   };
 
@@ -85,12 +87,12 @@
     // autoStabilize if all movementcontrols are zero
     if (cfg.autoStabilize.enabled &&  // feature enabled?
       allCtrlsZero() &&               // no new movement controls?
-      this.droneIsMoving &&           // are we move currently moving?
+      this.droneIsMoving &&           // are we currently moving?
       !this.autoStabilizeTimout) {    // are we already stabilizing?
 
       this.autoStabilizeTimout = setTimeout(function() {
         this.droneIsMoving = false;
-        this.cockpit.socket.emit('/pilot/move', { action: 'stop' });
+        this.cockpit.socket.emit('/pilot/drone', { action: 'stop' });
       }.bind(this), cfg.autoStabilize.delay * 1000);
     }
 
@@ -233,8 +235,14 @@
 
     if(gamepad.buttons[cfg.hover].pressed) {
       this.droneIsMoving = false;
-      socket.emit('/pilot/move', { action: 'stop' });
+      socket.emit('/pilot/drone', { action: 'stop' });
     }
+
+    if(gamepad.buttons[cfg.flatTrim].pressed && !this.droneIsMoving)
+      socket.emit('/pilot/ftrim');
+    
+    if(gamepad.buttons[cfg.switchCams].pressed)
+      socket.emit('/pilot/cannel');
 
     // custom commands from config
     for (var cmd of this.config.customCommands) {
