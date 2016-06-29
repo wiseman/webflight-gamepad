@@ -26,18 +26,23 @@
     this.gamepads = [];
     this.prevRawGamepadTypes = [];
     this.prevTimestamps = [];
+    this.droneIsMoving = false;
+    this.autoStabilizeTimout = null;
 
     // default config
     this.config = {
-      altitude: { axis: 0, invert: false },
-      yaw:      { axis: 1, invert: false },
-      pitch:    { axis: 2, invert: false },
-      roll:     { axis: 3, invert: false },
-      takeoff: 9,
-      land:   10,
-      disableEmergency: 11,
-      hover:   3,
-      flip:    4,
+      autoStabilize: { enabled: false, delay: 0.7 },
+      controls: {
+        altitude: { axis: 0, invert: false, deadZone: 0.1 },
+        yaw:      { axis: 1, invert: false, deadZone: 0.1 },
+        pitch:    { axis: 2, invert: false, deadZone: 0.1 },
+        roll:     { axis: 3, invert: false, deadZone: 0.1 },
+        disableEmergency: 11,
+        takeoff: 9,
+        land:   10,
+        hover:   3,
+        flip:    4,
+      },
       customCommands: []
     };
 
@@ -75,21 +80,48 @@
   };
 
   Gamepad.prototype.sendCommands = function(pitch, roll, yaw, altitude) {
-    // console.log('yaw (direction): ' + ' , altitude ' + altitude);
-    this.emitMove(pitch, 'back', 'front');
-    this.emitMove(roll, 'right', 'left');
-    this.emitMove(yaw, 'clockwise', 'counterClockwise');
-    this.emitMove(altitude, 'down', 'up');
+    var cfg = this.config;
+
+    // autoStabilize if all movementcontrols are zero
+    if (cfg.autoStabilize.enabled &&  // feature enabled?
+      allCtrlsZero() &&               // no new movement controls?
+      this.droneIsMoving &&           // are we move currently moving?
+      !this.autoStabilizeTimout) {    // are we already stabilizing?
+
+      this.autoStabilizeTimout = setTimeout(function() {
+        this.droneIsMoving = false;
+        this.cockpit.socket.emit('/pilot/move', { action: 'stop' });
+      }.bind(this), cfg.autoStabilize.delay * 1000);
+    }
+
+    else if (!allCtrlsZero()) {
+      if (this.autoStabilizeTimout) {
+        clearTimeout(this.autoStabilizeTimout);
+        this.autoStabilizeTimout = null;
+      }
+      this.droneIsMoving = true;
+
+      this.emitMove(pitch, 'back', 'front', cfg.controls.pitch.deadZone);
+      this.emitMove(roll, 'right', 'left',  cfg.controls.roll.deadZone);
+      this.emitMove(yaw, 'clockwise', 'counterClockwise', cfg.controls.yaw.deadZone);
+      this.emitMove(altitude, 'down', 'up', cfg.controls.altitude.deadZone);
+    }
+
+    function allCtrlsZero() {
+      return Math.abs(pitch) <= cfg.controls.pitch.deadZone &&
+        Math.abs(roll) <= cfg.controls.roll.deadZone &&
+        Math.abs(yaw) <= cfg.controls.yaw.deadZone &&
+        Math.abs(altitude) <= cfg.controls.altitude.deadZone;
+    }
   };
 
   Gamepad.prototype.emitMove = function(speed, posAction, negAction, deadZone) {
-    deadZone = deadZone || 0.1;
     var action = speed > 0 ? posAction : negAction;
     var absSpeed = Math.abs(speed);
     absSpeed = absSpeed >= deadZone ? absSpeed : 0.0;
     this.cockpit.socket.emit('/pilot/move', {
       action: action,
-      speed: Math.abs(absSpeed/3)
+      speed: absSpeed/3
     });
   };
 
@@ -170,7 +202,7 @@
   
   Gamepad.prototype.updateDisplay = function(gamepadId) {
     var gamepad = this.gamepads[gamepadId],
-        cfg = this.config,
+        cfg = this.config.controls,
         socket = this.cockpit.socket;
 
     var pitch = gamepad.axes[cfg.pitch.axis],
@@ -191,19 +223,23 @@
     if(gamepad.buttons[cfg.takeoff].pressed)
       socket.emit('/pilot/move', { action: 'takeoff' });
 
-    if(gamepad.buttons[cfg.land].pressed)
+    if(gamepad.buttons[cfg.land].pressed) {
+      this.droneIsMoving = false;
       socket.emit('/pilot/move', { action: 'land' });
+    }
     
     if(gamepad.buttons[cfg.disableEmergency].pressed)
       socket.emit('/pilot/move', { action: 'disableEmergency' });
 
-    if(gamepad.buttons[cfg.hover].pressed)
+    if(gamepad.buttons[cfg.hover].pressed) {
+      this.droneIsMoving = false;
       socket.emit('/pilot/move', { action: 'stop' });
+    }
 
     // custom commands from config
-    for (var cmd of cfg.customCommands) {
+    for (var cmd of this.config.customCommands) {
       if(gamepad.buttons[cmd.button].pressed)
-        socket.emit(cmd.command.path, { action: cmd.command.action });
+        socket.emit(cmd.command.path, cmd.command.payload);
     }
   };
 
