@@ -1,14 +1,14 @@
 /**
  * Copyright 2012 Google Inc. All Rights Reserved.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
+ * Licensed under the Apache License, Version 2.0 (the 'License');
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
+ * distributed under the License is distributed on an 'AS IS' BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
@@ -20,12 +20,14 @@
 (function(window, document, $) {
   var Gamepad = function(cockpit) {
 
-    console.log("Loading gamepad plugin.");
+    console.log('Loading gamepad plugin.');
     this.cockpit = cockpit;
     this.ticking = false;
     this.gamepads = [];
     this.prevRawGamepadTypes = [];
     this.prevTimestamps = [];
+
+    // default config
     this.config = {
       altitude: { axis: 0, invert: false },
       yaw:      { axis: 1, invert: false },
@@ -33,8 +35,10 @@
       roll:     { axis: 3, invert: false },
       takeoff: 9,
       land:   10,
+      disableEmergency: 11,
       hover:   3,
       flip:    4,
+      customCommands: []
     };
 
     this.cockpit.socket.on('/gamepad-config', this.updateConfig.bind(this));
@@ -55,9 +59,7 @@
       window.addEventListener('MozGamepadDisconnected',
                               this.onGamepadDisconnect.bind(this),
                               false);
-      if (gamepadSupportAvailable) {
-        this.startPolling();
-      }
+      if (gamepadSupportAvailable) this.startPolling();
     }
   };
 
@@ -69,7 +71,7 @@
   };
 
   Gamepad.prototype.sendCommands = function(pitch, roll, yaw, altitude) {
-    // console.log("yaw (direction): " + " , altitude " + altitude);
+    // console.log('yaw (direction): ' + ' , altitude ' + altitude);
     this.emitMove(pitch, 'back', 'front');
     this.emitMove(roll, 'right', 'left');
     this.emitMove(yaw, 'clockwise', 'counterClockwise');
@@ -88,7 +90,7 @@
   };
 
   Gamepad.prototype.onGamepadConnect = function(event) {
-    console.log("Gamepad connect: " + event);
+    console.log('Gamepad connect: ' + event);
     this.gamepads.push(event.gamepad);
     this.startPolling();
   };
@@ -176,21 +178,27 @@
     );
   
     if(gamepad.buttons[cfg.flip].pressed)
-      socket.emit('/pilot/animate', { action: "flipAhead" });
+      socket.emit('/pilot/animate', { action: 'flipAhead' });
    
     if(gamepad.buttons[cfg.takeoff].pressed)
-      socket.emit('/pilot/move', { action: "takeoff" });
+      socket.emit('/pilot/move', { action: 'takeoff' });
 
     if(gamepad.buttons[cfg.land].pressed)
-      socket.emit('/pilot/move', { action: "land" });
+      socket.emit('/pilot/move', { action: 'land' });
     
     if(gamepad.buttons[cfg.disableEmergency].pressed)
-      socket.emit('/pilot/move', { action: "disableEmergency" });
+      socket.emit('/pilot/move', { action: 'disableEmergency' });
 
     if(gamepad.buttons[cfg.hover].pressed)
-      socket.emit('/pilot/move', { action: "stop" });
-  };
+      socket.emit('/pilot/move', { action: 'stop' });
 
+    // custom commands from config
+    for (var cmd of cfg.customCommands) {
+      if(gamepad.buttons[cmd.button].pressed)
+        socket.emit(cmd.command.path, { action: cmd.command.action });
+    }
+
+  };
 
   window.Cockpit.plugins.push(Gamepad);
 
