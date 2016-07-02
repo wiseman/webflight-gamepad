@@ -31,15 +31,15 @@
 
     // default config
     this.config = {
-      autoStabilize: { enabled: false, delay: 0.7 },
+      autoStabilize: { enabled: true, delay: 0.2 },
       controls: {
-        altitude: { axis: 0, invert: false, deadZone: 0.1 },
-        yaw:      { axis: 1, invert: false, deadZone: 0.1 },
-        pitch:    { axis: 2, invert: false, deadZone: 0.1 },
-        roll:     { axis: 3, invert: false, deadZone: 0.1 },
+        yaw:      { axis: 0, invert: false, deadZone: 0.1 },
+        altitude: { axis: 1, invert: false, deadZone: 0.1 },
+        roll:     { axis: 2, invert: false, deadZone: 0.1 },
+        pitch:    { axis: 3, invert: false, deadZone: 0.1 },
         disableEmergency: 8,
-        takeoff:   10,
-        land:      11,
+        takeoff:    6,
+        land:       7,
         hover:      1,
         flip:       2,
         flatTrim:   3,
@@ -48,7 +48,7 @@
       customCommands: []
     };
 
-    this.cockpit.socket.on('/gamepad-config', this.onConfigUpdate.bind(this));
+    this.cockpit.socket.on('/gamepad/config', this.onConfigUpdate.bind(this));
 
     var gamepadSupportAvailable = (
         navigator.getGamepads ||
@@ -57,14 +57,11 @@
         (navigator.userAgent.indexOf('Firefox/') != -1));
 
     if (!gamepadSupportAvailable) {
-      console.log('Gamepad not supported.');
       $.notifyBar({
         cssClass: "warn",
         html: 'Browser has no gamepad support! Please use latest Firefox or Chromium'
       });
     } else {
-      console.log('Gamepad supported.')
-
       if (navigator.userAgent.indexOf('Firefox/') != -1) {
         window.addEventListener('gamepadconnected', this.onGamepadConnect.bind(this), false);
         window.addEventListener('gamepaddisconnected', this.onGamepadDisconnect.bind(this), false);
@@ -75,18 +72,15 @@
     }
   };
 
+  // recieve config on connection from webflight config.js
   Gamepad.prototype.onConfigUpdate = function(config) {
-    // recieve config on connection from webflight config.js
     console.log('recieved gamepad config.');
     $.extend(this.config, config);
   };
 
   Gamepad.prototype.sendCommands = function(pitch, roll, yaw, altitude) {
     var cfg = this.config;
-        allCtrlsZero = Math.abs(pitch) <= cfg.controls.pitch.deadZone &&
-          Math.abs(roll) <= cfg.controls.roll.deadZone &&
-          Math.abs(yaw) <= cfg.controls.yaw.deadZone &&
-          Math.abs(altitude) <= cfg.controls.altitude.deadZone;
+        allCtrlsZero = (Math.abs(pitch) + Math.abs(roll) + Math.abs(yaw) + Math.abs(altitude) === 0);
 
     // autoStabilize if all movementcontrols are zero
     if (cfg.autoStabilize.enabled &&  // feature enabled?
@@ -118,10 +112,7 @@
     var action = speed > 0 ? posAction : negAction;
     var absSpeed = Math.abs(speed);
     absSpeed = absSpeed >= deadZone ? absSpeed : 0.0;
-    this.cockpit.socket.emit('/pilot/move', {
-      action: action,
-      speed: absSpeed/3
-    });
+    this.cockpit.socket.emit('/pilot/move', { action: action, speed: absSpeed / 3 });
   };
 
   Gamepad.prototype.onGamepadConnect = function(event) {
@@ -135,22 +126,20 @@
     $.notifyBar({ cssClass: "warning", html: 'Gamepad disconnected: ' + event.gamepad.id });
 
     for (var i in this.gamepads) {
-      if (this.gamepads[i].index == event.gamepad.index) {
+      if (this.gamepads[i].index === event.gamepad.index) {
         this.gamepads.splice(i, 1);
         break;
       }
     }
-    if (this.gamepads.length == 0) {
+    if (this.gamepads.length === 0)
       this.stopPolling();
-    }
   };
 
   Gamepad.prototype.startPolling = function() {
+    if (this.ticking) return;
     console.log('started gamepad eventpolling.');
-    if (!this.ticking) {
-      this.ticking = true;
-      this.tick();
-    }
+    this.ticking = true;
+    this.tick();
   };
 
   Gamepad.prototype.stopPolling = function() {
@@ -163,18 +152,16 @@
   };
 
   Gamepad.prototype.scheduleNextTick = function() {
-    if (this.ticking) {
+    if (this.ticking)
       requestAnimationFrame(this.tick.bind(this));
-    }
   };
 
   Gamepad.prototype.pollStatus = function() {
     this.pollGamepads();
     for (var i in this.gamepads) {
       var gamepad = this.gamepads[i];
-      if (gamepad.timestamp && (gamepad.timestamp == this.prevTimestamps[i])) {
+      if (gamepad.timestamp && (gamepad.timestamp == this.prevTimestamps[i]))
         continue;
-      }
       this.prevTimestamps[i] = gamepad.timestamp;
       this.updateDisplay(i);
     }
@@ -190,12 +177,10 @@
           gamepadsChanged = true;
           this.prevRawGamepadTypes[i] = rawGamepads[i];
         }
-        if (rawGamepads[i]) {
+        if (rawGamepads[i])
           this.gamepads.push(rawGamepads[i]);
-        }
       }
-      if (gamepadsChanged) {
-      }
+      if (gamepadsChanged) {}
     }
   };
   
@@ -239,7 +224,7 @@
       socket.emit('/pilot/ftrim');
     
     if(gamepad.buttons[cfg.switchCams].pressed)
-      socket.emit('/pilot/cannel');
+      socket.emit('/pilot/channel');
 
     // custom commands from config
     for (var cmd of this.config.customCommands) {
