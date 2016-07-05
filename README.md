@@ -23,8 +23,8 @@ I recommend testing the button layout [here](http://html5gamepad.com/) first, an
 |---------|----------|
 |LS|altitude & yaw|
 |RS|pitch & roll|
-|press LS|takeoff|
-|press RS|land|
+|LB|takeoff|
+|RB|land|
 |Button 1 / A|switch cameras|
 |Button 2 / B|hover / stop current motion|
 |Button 3 / Y|flip (front)|
@@ -72,20 +72,20 @@ The default configuration looks like this, and is merged with the `config.gamepa
 ```js
 {
   // hover when no input is given after delay seconds
-  autoStabilize: { enabled: false, delay: 0.7 },
+  autoStabilize: { enabled: true, delay: 0.15 },
   // controller mapping
   controls: {
-    altitude: { axis: 0, invert: false, deadZone: 0.1 },
-    yaw:      { axis: 1, invert: false, deadZone: 0.1 },
-    pitch:    { axis: 2, invert: false, deadZone: 0.1 },
-    roll:     { axis: 3, invert: false, deadZone: 0.1 },
+    yaw:      { axis: 0, invert: false, deadZone: 0.1, maxSpeed: 1 },
+    altitude: { axis: 1, invert: false, deadZone: 0.1, maxSpeed: 1 },
+    roll:     { axis: 2, invert: false, deadZone: 0.1, maxSpeed: 0.4 },
+    pitch:    { axis: 3, invert: false, deadZone: 0.1, maxSpeed: 0.4 },
     disableEmergency: 8,
-    takeoff:   10,
-    land:      11,
+    switchCams: 0,
     hover:      1,
     flip:       2,
     flatTrim:   3,
-    switchCams: 0
+    takeoff:    6,
+    land:       7
   },
   // add custom commands
   customCommands: []
@@ -93,7 +93,6 @@ The default configuration looks like this, and is merged with the `config.gamepa
 ```
 
 ### autoStabilize
-**WARNING; THIS FEATURE IS UNTESTED SO FAR ;^)**
 
 The auto-stabilization feature is disabled by default.
 When enabled in the config, the drone will automatically hover after the specified delay, once you don't touch any of the sticks!
@@ -109,7 +108,7 @@ To define a custom command, add an object with the following structure to the `g
 ```
 
 This adds a backflip animation to button 7.
-Any websocket message may be sent this way!
+Any websocket message may be sent this way to the node server!
 
 ## License
 Published under the [apache license 2.0](http://www.apache.org/licenses/LICENSE-2.0).

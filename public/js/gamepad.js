@@ -31,19 +31,19 @@
 
     // default config
     this.config = {
-      autoStabilize: { enabled: true, delay: 0.2 },
+      autoStabilize: { enabled: true, delay: 0.15 },
       controls: {
-        yaw:      { axis: 0, invert: false, deadZone: 0.1 },
-        altitude: { axis: 1, invert: false, deadZone: 0.1 },
-        roll:     { axis: 2, invert: false, deadZone: 0.1 },
-        pitch:    { axis: 3, invert: false, deadZone: 0.1 },
-        disableEmergency: 8,
-        takeoff:    6,
-        land:       7,
+        yaw:      { axis: 0, invert: false, deadZone: 0.1, maxSpeed: 1 },
+        altitude: { axis: 1, invert: false, deadZone: 0.1, maxSpeed: 1 },
+        roll:     { axis: 2, invert: false, deadZone: 0.1, maxSpeed: 0.4 },
+        pitch:    { axis: 3, invert: false, deadZone: 0.1, maxSpeed: 0.4 },
+        switchCams: 0,
         hover:      1,
         flip:       2,
         flatTrim:   3,
-        switchCams: 0
+        takeoff:    6,
+        land:       7,
+        recoverEmergency: 8
       },
       customCommands: []
     };
@@ -79,19 +79,19 @@
   };
 
   Gamepad.prototype.sendCommands = function(pitch, roll, yaw, altitude) {
-    var cfg = this.config;
+    var cfg = this.config.controls;
         allCtrlsZero = (Math.abs(pitch) + Math.abs(roll) + Math.abs(yaw) + Math.abs(altitude) === 0);
 
     // autoStabilize if all movementcontrols are zero
-    if (cfg.autoStabilize.enabled &&  // feature enabled?
-      allCtrlsZero &&                 // no new movement controls?
-      this.droneIsMoving &&           // are we currently moving?
-      !this.autoStabilizeTimout) {    // are we already stabilizing?
+    if (this.config.autoStabilize.enabled && // feature enabled?
+      allCtrlsZero &&                        // no new movement controls?
+      this.droneIsMoving &&                  // are we currently moving?
+      !this.autoStabilizeTimout) {           // are we already stabilizing?
 
       this.autoStabilizeTimout = setTimeout(function() {
         this.droneIsMoving = false;
         this.cockpit.socket.emit('/pilot/drone', { action: 'stop' });
-      }.bind(this), cfg.autoStabilize.delay * 1000);
+      }.bind(this), this.config.autoStabilize.delay * 1000);
     }
 
     else if (!allCtrlsZero) {
@@ -99,20 +99,24 @@
         clearTimeout(this.autoStabilizeTimout);
         this.autoStabilizeTimout = null;
       }
+
       this.droneIsMoving = true;
-
-      this.emitMove(pitch, 'back', 'front', cfg.controls.pitch.deadZone);
-      this.emitMove(roll, 'right', 'left',  cfg.controls.roll.deadZone);
-      this.emitMove(yaw, 'clockwise', 'counterClockwise', cfg.controls.yaw.deadZone);
-      this.emitMove(altitude, 'down', 'up', cfg.controls.altitude.deadZone);
+      emitMove(pitch, 'back', cfg.pitch);
+      emitMove(roll, 'right', cfg.roll);
+      emitMove(yaw, 'clockwise', cfg.yaw);
+      emitMove(altitude, 'down', cfg.altitude);
     }
-  };
 
-  Gamepad.prototype.emitMove = function(speed, posAction, negAction, deadZone) {
-    var action = speed > 0 ? posAction : negAction;
-    var absSpeed = Math.abs(speed);
-    absSpeed = absSpeed >= deadZone ? absSpeed : 0.0;
-    this.cockpit.socket.emit('/pilot/move', { action: action, speed: absSpeed / 3 });
+    function emitMove(speed, action, axisConf) {
+      // normalize speed from deadZone
+      var s = (speed - (speed > 0 ? axisConf.deadZone : -axisConf.deadZone)) * 1 / (1-axisConf.deadZone);
+      if (Math.abs(speed) < axisConf.deadZone) s = 0.0;
+      if (axisConf.invert) s *= -1;
+      this.cockpit.socket.emit('/pilot/move', {
+        action: action,
+        speed: s * axisConf.maxSpeed
+      });
+    }
   };
 
   Gamepad.prototype.onGamepadConnect = function(event) {
@@ -189,16 +193,9 @@
         cfg = this.config.controls,
         socket = this.cockpit.socket;
 
-    var pitch = gamepad.axes[cfg.pitch.axis],
-        roll  = gamepad.axes[cfg.roll.axis],
-        yaw   = gamepad.axes[cfg.yaw.axis],
-        altitude = gamepad.axes[cfg.altitude.axis];
-
     this.sendCommands(
-      cfg.pitch.invert    ? -1 * pitch : pitch,
-      cfg.roll.invert     ? -1 * roll : roll,
-      cfg.yaw.invert      ? -1 * yaw : yaw,
-      cfg.altitude.invert ? -1 * altitude : altitude
+      gamepad.axes[cfg.pitch.axis], gamepad.axes[cfg.roll.axis],
+      gamepad.axes[cfg.yaw.axis],   gamepad.axes[cfg.altitude.axis]
     );
   
     if(gamepad.buttons[cfg.flip].pressed)
@@ -212,7 +209,7 @@
       socket.emit('/pilot/move', { action: 'land' });
     }
     
-    if(gamepad.buttons[cfg.disableEmergency].pressed)
+    if(gamepad.buttons[cfg.recoverEmergency].pressed)
       socket.emit('/pilot/move', { action: 'disableEmergency' });
 
     if(gamepad.buttons[cfg.hover].pressed) {
