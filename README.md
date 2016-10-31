@@ -1,83 +1,116 @@
-webflight-gamepad
-=================
+# webflight-gamepad
 
 This is a plugin for the browser-based AR.Drone ground control station
 [webflight](http://eschnou.github.io/ardrone-webflight/) that lets you
 fly your drone with a joystick or gamepad.
 
 ## How it works
-
-The plugin uses the still-pretty-alpha [Gamepad
+The plugin uses the <del>still-pretty-alpha</del> [Gamepad
 API](https://dvcs.w3.org/hg/gamepad/raw-file/default/gamepad.html) for
 web browsers.
+Current Firefox & Chromium/Chrome are supported.
+You may test with a connected gamepad on [this site](http://html5gamepad.com/).
 
-You can check whether your browser implements the Gamepad API with
-[this test
-page](http://www.html5rocks.com/en/tutorials/doodles/gamepad/gamepad-tester/tester.html).
+The first connected gamepad is used to control the drone. It gets activated, once a button on the pad is pressed.
 
+Custom commands & controls may be configured in `ardone-webflight`'s `config.js` (see [below](#configuration)).
 
-## Running the software
+### default controls
+these may be mapped differently depending on your device.
+I recommend testing the button layout [here](http://html5gamepad.com/) first, and configuring your own button layout (see [below](#configuration)).
 
+| control | function |
+|---------|----------|
+|LS|altitude & yaw|
+|RS|pitch & roll|
+|LB|takeoff|
+|RB|land|
+|Button 1 / A|switch cameras|
+|Button 2 / B|hover / stop current motion|
+|Button 3 / Y|flip (front)|
+|Button 4 / X|flat trim|
+|Button 9|disable emergency|
+
+## Installing & activating the plugin
 You will need the
-[ardrone-webflight](https://github.com/eschnou/ardrone-webflight) and
-webflight-traffic repos:
+[`ardrone-webflight`](https://github.com/eschnou/ardrone-webflight) and
+`webflight-gamepad` repos:
 
 ```
 git clone git://github.com/eschnou/ardrone-webflight.git
-git clone git://github.com/wiseman/webflight-gamepad.git
+git clone git://github.com/noerw/webflight-gamepad.git
 ```
 
-Run `npm install` for each:
+To install `adrone-webflight`, see the respective repo.
+
+Link `webflight-gamepad` into webflight's `plugins` directory, or add it as a git submodule:
 
 ```
-(cd ardrone-webflight && npm install)
-(cd webflight-gamepad && npm install)
+cd ardrone-webflight/plugins 
+ln -s ../../webflight-gamepad gamepad
 ```
 
-Link `webflight-gamepad` into webflight's `plugins` directory:
-
-```
-(cd ardrone-webflight/plugins && ln -s ../../webflight-gamepad gamepad)
-```
-
-Copy ardrone-webflight's `config.js.example` to `config.js`:
-
-```
-(cd ardrone-webflight && cp config.js.example config.js)
-```
-
-Add `"gamepad"` and `"public"` to the `plugins` array in `config.js`,
+Add `pilot` and `gamepad` to the `plugins` array in `config.js`,
 so it looks something like this:
 
 ```
-var config = {
-    plugins: [
-      "video-stream"  // Display the video as a native h264 stream decoded in JS 
-      , "hud"         // Display the artificial horizon, altimeter, compass, etc.
-      , "pilot"       // Pilot the drone with the keyboard
-      , "gamepad"     // Pilot the drone with a joystick/gamepad
-    ]
-};
-
-module.exports = config;
+plugins: [
+  "video-stream"  // Display the video as a native h264 stream decoded in JS 
+  , "hud"         // Display the artificial horizon, altimeter, compass, etc.
+  , "pilot"       // Pilot the drone with the keyboard
+  , "gamepad"     // Pilot the drone with a joystick/gamepad
+]
 ```
 
+## configuration
 
-### Start the server
+All controls may be remapped.
+Also, custom commands (eg. for other plugins) may be added!
 
-Now you can start the webflight server:
+The default configuration looks like this, and is merged with the `config.gamepad` object in `ardrone-webflight/config.js`:
 
+```js
+{
+  // hover when no input is given after delay seconds
+  autoStabilize: { enabled: true, delay: 0.15 },
+  // controller mapping
+  controls: {
+    yaw:      { axis: 0, invert: false, deadZone: 0.1, maxSpeed: 1 },
+    altitude: { axis: 1, invert: false, deadZone: 0.1, maxSpeed: 1 },
+    roll:     { axis: 2, invert: false, deadZone: 0.1, maxSpeed: 0.4 },
+    pitch:    { axis: 3, invert: false, deadZone: 0.1, maxSpeed: 0.4 },
+    disableEmergency: 8,
+    switchCams: 0,
+    hover:      1,
+    flip:       2,
+    flatTrim:   3,
+    takeoff:    6,
+    land:       7
+  },
+  // add custom commands
+  customCommands: []
+}
 ```
-(cd ardrone-webflight && node app.js)
+
+### autoStabilize
+
+The auto-stabilization feature is disabled by default.
+When enabled in the config, the drone will automatically hover after the specified delay, once you don't touch any of the sticks!
+
+### custom commands
+To define a custom command, add an object with the following structure to the `gamepad.customCommands` array:
+
+```js
+{
+  button: 7,
+  command: { path: '/pilot/animate', payload: { action: 'flipBack' } }
+}
 ```
 
-Plugin your gamepad, point your browser at http://localhost:3000/ and
-then press a button on your gamepad to activate the plugin.
+This adds a backflip animation to button 7.
+Any websocket message may be sent this way to the node server!
 
-If you have a Logitech Extreme 3D Pro joystick, you should now be able
-to control the drone's roll/pitch/yaw with the joystick and
-climb/descent rate with the throttle.
+## License
+Published under the [apache license 2.0](http://www.apache.org/licenses/LICENSE-2.0).
 
-If you have a device that doesn't work with the existing code you may
-have to change the code to use different control axes.  Open an issue
-and let me know.
+Originially written by [wiseman](https://github.com/wiseman/webflight-gamepad), updated & extended by [noerw](https://github.com/noerw/webflight-gamepad)
