@@ -29,7 +29,7 @@ I recommend testing the button layout [here](http://html5gamepad.com/) first, an
 |Button 2 / B|hover / stop current motion|
 |Button 3 / Y|flip (front)|
 |Button 4 / X|flat trim|
-|Button 9|disable emergency|
+|Button 9|disable emergency (enable takeoff again eg after a crash)|
 
 ## Installing & activating the plugin
 You will need the
@@ -46,7 +46,7 @@ To install `adrone-webflight`, see the respective repo.
 Link `webflight-gamepad` into webflight's `plugins` directory, or add it as a git submodule:
 
 ```
-cd ardrone-webflight/plugins 
+cd ardrone-webflight/plugins
 ln -s ../../webflight-gamepad gamepad
 ```
 
@@ -55,7 +55,7 @@ so it looks something like this:
 
 ```
 plugins: [
-  "video-stream"  // Display the video as a native h264 stream decoded in JS 
+  "video-stream"  // Display the video as a native h264 stream decoded in JS
   , "hud"         // Display the artificial horizon, altimeter, compass, etc.
   , "pilot"       // Pilot the drone with the keyboard
   , "gamepad"     // Pilot the drone with a joystick/gamepad
@@ -63,8 +63,7 @@ plugins: [
 ```
 
 ## configuration
-
-All controls may be remapped.
+All controls may be remapped in webflights' main configuration file.
 Also, custom commands (eg. for other plugins) may be added!
 
 The default configuration looks like this, and is merged with the `config.gamepad` object in `ardrone-webflight/config.js`:
@@ -79,7 +78,7 @@ The default configuration looks like this, and is merged with the `config.gamepa
     altitude: { axis: 1, invert: false, deadZone: 0.1, maxSpeed: 1 },
     roll:     { axis: 2, invert: false, deadZone: 0.1, maxSpeed: 0.4 },
     pitch:    { axis: 3, invert: false, deadZone: 0.1, maxSpeed: 0.4 },
-    recoverEmergency: 8,
+    disableEmergency: 8,
     switchCams: 0,
     hover:      1,
     flip:       2,
@@ -93,9 +92,7 @@ The default configuration looks like this, and is merged with the `config.gamepa
 ```
 
 ### autoStabilize
-
-The auto-stabilization feature is disabled by default.
-When enabled in the config, the drone will automatically hover after the specified delay, once you don't touch any of the sticks!
+When `autoStabilize` is enabled, the drone will automatically hover once you the sticks let go after the specified delay.
 
 ### custom commands
 To define a custom command, add an object with the following structure to the `gamepad.customCommands` array:
@@ -112,5 +109,7 @@ Any websocket message may be sent this way to the node server!
 
 ## License
 Published under the [apache license 2.0](http://www.apache.org/licenses/LICENSE-2.0).
+
+---
 
 Originially written by [wiseman](https://github.com/wiseman/webflight-gamepad), updated & extended by [noerw](https://github.com/noerw/webflight-gamepad)

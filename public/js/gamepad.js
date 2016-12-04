@@ -43,7 +43,7 @@
         flatTrim:   3,
         takeoff:    6,
         land:       7,
-        recoverEmergency: 8
+        disableEmergency: 8
       },
       customCommands: []
     };
@@ -187,7 +187,7 @@
       if (gamepadsChanged) {}
     }
   };
-  
+
   Gamepad.prototype.updateDisplay = function(gamepadId) {
     var gamepad = this.gamepads[gamepadId],
         cfg = this.config.controls,
@@ -197,10 +197,10 @@
       gamepad.axes[cfg.pitch.axis], gamepad.axes[cfg.roll.axis],
       gamepad.axes[cfg.yaw.axis],   gamepad.axes[cfg.altitude.axis]
     );
-  
+
     if(gamepad.buttons[cfg.flip].pressed)
       socket.emit('/pilot/animate', { action: 'flipAhead' });
-   
+
     if(gamepad.buttons[cfg.takeoff].pressed)
       socket.emit('/pilot/move', { action: 'takeoff' });
 
@@ -208,8 +208,8 @@
       this.droneIsMoving = false;
       socket.emit('/pilot/move', { action: 'land' });
     }
-    
-    if(gamepad.buttons[cfg.recoverEmergency].pressed)
+
+    if(gamepad.buttons[cfg.disableEmergency].pressed)
       socket.emit('/pilot/move', { action: 'disableEmergency' });
 
     if(gamepad.buttons[cfg.hover].pressed) {
@@ -219,7 +219,7 @@
 
     if(gamepad.buttons[cfg.flatTrim].pressed && !this.droneIsMoving)
       socket.emit('/pilot/ftrim');
-    
+
     if(gamepad.buttons[cfg.switchCams].pressed)
       socket.emit('/pilot/channel');
 
