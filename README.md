@@ -112,5 +112,3 @@ Any websocket message may be sent this way to the node server!
 
 ## License
 Published under the [apache license 2.0](http://www.apache.org/licenses/LICENSE-2.0).
-
-Originially written by [wiseman](https://github.com/wiseman/webflight-gamepad), updated & extended by [noerw](https://github.com/noerw/webflight-gamepad)
