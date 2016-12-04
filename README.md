@@ -79,7 +79,7 @@ The default configuration looks like this, and is merged with the `config.gamepa
     altitude: { axis: 1, invert: false, deadZone: 0.1, maxSpeed: 1 },
     roll:     { axis: 2, invert: false, deadZone: 0.1, maxSpeed: 0.4 },
     pitch:    { axis: 3, invert: false, deadZone: 0.1, maxSpeed: 0.4 },
-    disableEmergency: 8,
+    recoverEmergency: 8,
     switchCams: 0,
     hover:      1,
     flip:       2,
@@ -112,5 +112,3 @@ Any websocket message may be sent this way to the node server!
 
 ## License
 Published under the [apache license 2.0](http://www.apache.org/licenses/LICENSE-2.0).
-
-Originially written by [wiseman](https://github.com/wiseman/webflight-gamepad), updated & extended by [noerw](https://github.com/noerw/webflight-gamepad)
